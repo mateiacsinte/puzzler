@@ -3,18 +3,30 @@ import Chess from "chess.js";
 import { Chessboard } from "react-chessboard";
 
 function ChessGame() {
-    const puzzle = {
+    const puzzle = [{
     "fen": "r1bqk2r/2p1bppp/p1np1n2/1p2p3/4P3/1B3N2/PPPP1PPP/RNBQR1K1 w kq - 0 8",
-    "solution": ["c3", "O-O", "h3", "Nb8", "d4", "Nbd7"]
-  }
+    "solution": ["c3", "O-O", "h3", "Nb8", "d4"]
+  },
+  {
+    fen: "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2",
+    solution: ["Nf3", "Nf6", "c4", "e6", "Nc"]
+  }]
 
-  const [game, setGame] = useState(new Chess(puzzle.fen));
+
   const [index, setSolutionIndex] = useState(0);
+  const [puzzleIndex, setPuzzleIndex] = useState(0)
+
+
   const [currentTimeout, setCurrentTimeout] = useState(null);
   const [boardWidth, setBoardWidth] = useState(window.innerWidth * 0.4);
 
+  const [game, setGame] = useState(new Chess(puzzle[puzzleIndex].fen));
 
 
+  useEffect(() => {
+    setGame(new Chess(puzzle[puzzleIndex].fen));
+    setSolutionIndex(0);
+  }, [puzzleIndex]);
 
   // Update boardWidth when the window is resized
   useEffect(() => {
@@ -38,16 +50,37 @@ function ChessGame() {
     // const randomIndex = Math.floor(Math.random() * possibleMoves.length);
     // safeGameMutate((game) => game.move(possibleMoves[randomIndex]));
     setSolutionIndex((prevIndex) => {
-      console.log("random triggered");
-      console.log("move", puzzle.solution[index+1]);
-      safeGameMutate((game) => game.move(puzzle.solution[index+1]));
-      const newIndex = prevIndex + 2;
-      return newIndex;
+      console.log("prevIndex", prevIndex)
+      console.log("sol length",  puzzle[puzzleIndex].solution.length)
+      if(prevIndex < puzzle[puzzleIndex].solution.length - 1){
+        console.log("random triggered");
+        console.log("move", puzzle[puzzleIndex].solution[index+1]);
+        safeGameMutate((game) => game.move(puzzle[puzzleIndex].solution[index+1]));
+        const newIndex = prevIndex + 2;
+        return newIndex
+      }else{
+        onNextPuzzle();
+        return 0;
+      }
+      
     });
+  }
+
+  function onNextPuzzle() {
+    const nextIndex = puzzleIndex + 1;
+    if (nextIndex < puzzle.length) {
+      setPuzzleIndex(nextIndex);
+    } else {
+      // Optionally loop back or handle end-of-puzzles
+      console.log("No more puzzles!");
+    }
   }
 
   function onDrop(sourceSquare, targetSquare, piece) {
     console.log("index", index)
+    console.log("from square", sourceSquare)
+    console.log("to square", targetSquare)
+    console.log("piece", piece)
     // Create a new game instance from current fen after making a move.
     const move = game.move({
       from: sourceSquare,
@@ -56,10 +89,12 @@ function ChessGame() {
     });
     console.log("move", move)
 
+    if (move === null) return false;
+
     // If move is illegal, return false so the piece snaps back.
-    if (move.san === puzzle.solution[index]){
+    if (move.san === puzzle[puzzleIndex].solution[index]){
       console.log("move san", move.san)
-      console.log("puzz sol move", puzzle.solution[index])
+      console.log("puzz sol move", puzzle[puzzleIndex].solution[index])
 
       // Update game state by creating a new Chess instance from the new FEN.
       setGame(new Chess(game.fen()));
@@ -108,6 +143,7 @@ function ChessGame() {
         >
           Undo
         </button>
+        <button onClick={onNextPuzzle}>Next Puzzle</button>
       </div>
     </div>
   );
