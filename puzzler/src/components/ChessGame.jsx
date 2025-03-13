@@ -4,12 +4,12 @@ import { Chessboard } from "react-chessboard";
 
 function ChessGame() {
     const puzzle = [{
-    "fen": "r1bqk2r/2p1bppp/p1np1n2/1p2p3/4P3/1B3N2/PPPP1PPP/RNBQR1K1 w kq - 0 8",
-    "solution": ["c3", "O-O", "h3", "Nb8", "d4"]
+    "fen": "r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24",
+    "solution": ["f2g3", "e6e7", "b2b1", "b3c1", "b1c1", "h6c1"]
   },
   {
-    fen: "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2",
-    solution: ["Nf3", "Nf6", "c4", "e6", "Nc"]
+    fen: "5rk1/1p3ppp/pq3b2/8/8/1P1Q1N2/P4PPP/3R2K1 w - - 2 27",
+    solution: ["d3d6", "f8d8", "d6d8", "f6d8"]
   }]
 
 
@@ -25,7 +25,12 @@ function ChessGame() {
 
   useEffect(() => {
     setGame(new Chess(puzzle[puzzleIndex].fen));
-    setSolutionIndex(0);
+    setTimeout(() => {
+      safeGameMutate((game) =>
+        game.move(parseUciMove(puzzle[puzzleIndex].solution[0]))
+      );
+    }, 500);
+    setSolutionIndex(1);
   }, [puzzleIndex]);
 
   // Update boardWidth when the window is resized
@@ -43,6 +48,25 @@ function ChessGame() {
     });
   }
 
+  /**
+ * Parses a UCI string (e.g., "e2e4" or "e7e8q") into a move object.
+ * @param {string} uciMove - The UCI move string.
+ * @returns {object} A move object with keys: from, to, and optionally promotion.
+ */
+function parseUciMove(uciMove) {
+  if (uciMove.length < 4 || uciMove.length > 5) {
+    throw new Error("Invalid UCI move format ", + uciMove);
+  }
+  const moveObj = {
+    from: uciMove.slice(0, 2),
+    to: uciMove.slice(2, 4),
+  };
+  if (uciMove.length === 5) {
+    moveObj.promotion = uciMove[4];
+  }
+  return moveObj;
+}
+
   function makeRandomMove() {
     // const possibleMoves = game.moves();
     // console.log(possibleMoves)
@@ -55,7 +79,7 @@ function ChessGame() {
       if(prevIndex < puzzle[puzzleIndex].solution.length - 1){
         console.log("random triggered");
         console.log("move", puzzle[puzzleIndex].solution[index+1]);
-        safeGameMutate((game) => game.move(puzzle[puzzleIndex].solution[index+1]));
+        safeGameMutate((game) => game.move(parseUciMove(puzzle[puzzleIndex].solution[index+1])));
         const newIndex = prevIndex + 2;
         return newIndex
       }else{
@@ -87,21 +111,26 @@ function ChessGame() {
       to: targetSquare,
       promotion: piece[1]?.toLowerCase() ?? "q",
     });
-    console.log("move", move)
+    console.log("move made by player", move)
 
     if (move === null) return false;
 
+    let moveUci = move.from + move.to;
+    if (move.promotion) {
+      moveUci += move.promotion;
+    }
+
+    console.log("move uci", moveUci)
+    console.log("puzz sol move", puzzle[puzzleIndex].solution[index])
     // If move is illegal, return false so the piece snaps back.
-    if (move.san === puzzle[puzzleIndex].solution[index]){
-      console.log("move san", move.san)
-      console.log("puzz sol move", puzzle[puzzleIndex].solution[index])
+    if (moveUci === puzzle[puzzleIndex].solution[index]){
 
       // Update game state by creating a new Chess instance from the new FEN.
       setGame(new Chess(game.fen()));
 
 
       //Execute a random move after a short delay.
-      const newTimeout = setTimeout(makeRandomMove, 0);
+      const newTimeout = setTimeout(makeRandomMove, 100);
       setCurrentTimeout(newTimeout);
       return true;
     }
