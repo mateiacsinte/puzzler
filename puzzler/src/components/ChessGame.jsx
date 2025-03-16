@@ -25,24 +25,28 @@ function ChessGame() {
     },
   ];
 
-  // Helper to compute board width based on screen size.
-  const getBoardWidth = () => {
-    return window.innerWidth < 768 ? window.innerWidth * 0.9 : window.innerWidth * 0.4;
+  // Compute board size: on mobile, take the smaller of the viewport's width or height (minus a margin).
+  // On larger screens, we use 40% of the viewport's width.
+  const getBoardSize = () => {
+    if (window.innerWidth < 768) {
+      return Math.min(window.innerWidth, window.innerHeight) - 20;
+    }
+    return window.innerWidth * 0.4;
   };
 
   // 'index' holds the index of the next expected move in the puzzle.solution array.
   const [index, setSolutionIndex] = useState(0);
   const [puzzleIndex, setPuzzleIndex] = useState(0);
   const [currentTimeout, setCurrentTimeout] = useState(null);
-  const [boardWidth, setBoardWidth] = useState(getBoardWidth());
+  const [boardSize, setBoardSize] = useState(getBoardSize());
   const [game, setGame] = useState(new Chess(puzzle[puzzleIndex].fen));
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [selectedSquare, setSelectedSquare] = useState(null);
 
-  // Update boardWidth on window resize.
+  // Update boardSize on window resize.
   useEffect(() => {
     const handleResize = () => {
-      setBoardWidth(getBoardWidth());
+      setBoardSize(getBoardSize());
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -118,7 +122,6 @@ function ChessGame() {
 
   // onSquareClick: handles click-to-move.
   function onSquareClick(square) {
-    // If no square is selected, and the square contains a piece for the side to move, select it.
     if (!selectedSquare) {
       const piece = game.get(square);
       if (piece && piece.color === game.turn()) {
@@ -126,27 +129,20 @@ function ChessGame() {
       }
       return;
     }
-
-    // If a square is already selected, attempt a move from selectedSquare to the clicked square.
     const move = game.move({
       from: selectedSquare,
       to: square,
       promotion: "q", // default promotion to queen if applicable
     });
-    // Clear selection regardless.
     setSelectedSquare(null);
-    if (move === null) return; // Illegal move.
-
-    // Construct UCI string for the move.
+    if (move === null) return;
     let moveUci = move.from + move.to;
     if (move.promotion) moveUci += move.promotion;
     console.log("Player move UCI:", moveUci);
     console.log("Expected UCI:", puzzle[puzzleIndex].solution[index]);
 
     if (moveUci === puzzle[puzzleIndex].solution[index]) {
-      // Correct move: update the game state.
       setGame(new Chess(game.fen()));
-      // Schedule the opponent move after a short delay.
       const newTimeout = setTimeout(makeRandomMove, 500);
       setCurrentTimeout(newTimeout);
     } else {
@@ -162,13 +158,11 @@ function ChessGame() {
     const movesFromSelected = game.moves({ square: selectedSquare, verbose: true });
     movesFromSelected.forEach((move) => {
       if (move.flags.includes("c")) {
-        // Capture move: use inset shadows to simulate grey corners.
         customSquareStyles[move.to] = {
           boxShadow:
             "inset 4px 4px 0 rgba(128,128,128,0.8), inset -4px -4px 0 rgba(128,128,128,0.8), inset 4px -4px 0 rgba(128,128,128,0.8), inset -4px 4px 0 rgba(128,128,128,0.8)",
         };
       } else {
-        // Non-capture move: display a grey dot in the center.
         customSquareStyles[move.to] = {
           background:
             "radial-gradient(circle, rgba(128,128,128,0.8) 10%, transparent 12%)",
@@ -177,7 +171,6 @@ function ChessGame() {
         };
       }
     });
-    // Style the selected square.
     customSquareStyles[selectedSquare] = { background: "rgba(255,0,0,0.2)" };
   }
 
@@ -186,15 +179,16 @@ function ChessGame() {
       style={{
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
         alignItems: "center",
+        justifyContent: "center",
         minHeight: "100vh",
-        padding: window.innerWidth < 768 ? "10px" : "20px",
+        padding: "10px",
       }}
     >
+      {/* The Chessboard will always be square, with boardSize computed above */}
       <Chessboard
         id="PlayVsRandom"
-        boardWidth={boardWidth}
+        boardWidth={boardSize}
         position={game.fen()}
         onSquareClick={onSquareClick}
         boardOrientation={boardOrientation}
