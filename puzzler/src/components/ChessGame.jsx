@@ -218,7 +218,6 @@ function ChessGame() {
       {/* Import Google Font and define keyframes for the toast animation */}
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
           
           @keyframes toastFadeUp {
             0% {
