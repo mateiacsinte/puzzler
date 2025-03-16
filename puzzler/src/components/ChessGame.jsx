@@ -5,8 +5,8 @@ import { Chessboard } from "react-chessboard";
 // The board orientation is opposite to the FEN active color.
 // (If FEN says white to move—opponent moves first—show black at the bottom.)
 const orientationMap = {
-  "w": "black",
-  "b": "white",
+  w: "black",
+  b: "white",
 };
 
 function ChessGame() {
@@ -25,18 +25,25 @@ function ChessGame() {
     },
   ];
 
+  // Helper to compute board width based on screen size.
+  const getBoardWidth = () => {
+    return window.innerWidth < 768 ? window.innerWidth * 0.9 : window.innerWidth * 0.4;
+  };
+
   // 'index' holds the index of the next expected move in the puzzle.solution array.
   const [index, setSolutionIndex] = useState(0);
   const [puzzleIndex, setPuzzleIndex] = useState(0);
   const [currentTimeout, setCurrentTimeout] = useState(null);
-  const [boardWidth, setBoardWidth] = useState(window.innerWidth * 0.4);
+  const [boardWidth, setBoardWidth] = useState(getBoardWidth());
   const [game, setGame] = useState(new Chess(puzzle[puzzleIndex].fen));
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [selectedSquare, setSelectedSquare] = useState(null);
 
   // Update boardWidth on window resize.
   useEffect(() => {
-    const handleResize = () => setBoardWidth(window.innerWidth * 0.4);
+    const handleResize = () => {
+      setBoardWidth(getBoardWidth());
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -58,7 +65,6 @@ function ChessGame() {
     setSelectedSquare(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [puzzleIndex]);
-
 
   // Helper: update the game state immutably.
   function safeGameMutate(modify) {
@@ -112,10 +118,8 @@ function ChessGame() {
 
   // onSquareClick: handles click-to-move.
   function onSquareClick(square) {
-    console.log('triggggggggg', selectedSquare)
-    // If no square is selected, and the square has a piece for the side to move, select it.
+    // If no square is selected, and the square contains a piece for the side to move, select it.
     if (!selectedSquare) {
-      console.log('this is piece selection')
       const piece = game.get(square);
       if (piece && piece.color === game.turn()) {
         setSelectedSquare(square);
@@ -129,10 +133,8 @@ function ChessGame() {
       to: square,
       promotion: "q", // default promotion to queen if applicable
     });
-
     // Clear selection regardless.
     setSelectedSquare(null);
-
     if (move === null) return; // Illegal move.
 
     // Construct UCI string for the move.
@@ -142,10 +144,8 @@ function ChessGame() {
     console.log("Expected UCI:", puzzle[puzzleIndex].solution[index]);
 
     if (moveUci === puzzle[puzzleIndex].solution[index]) {
-      // Correct move: update the game state (the game instance is already mutated).
-      // For consistency, we clone it.
+      // Correct move: update the game state.
       setGame(new Chess(game.fen()));
-      // Advance the expected move index.
       // Schedule the opponent move after a short delay.
       const newTimeout = setTimeout(makeRandomMove, 500);
       setCurrentTimeout(newTimeout);
@@ -156,8 +156,42 @@ function ChessGame() {
     }
   }
 
+  // Build customSquareStyles to highlight available moves for the selected piece.
+  const customSquareStyles = {};
+  if (selectedSquare) {
+    const movesFromSelected = game.moves({ square: selectedSquare, verbose: true });
+    movesFromSelected.forEach((move) => {
+      if (move.flags.includes("c")) {
+        // Capture move: use inset shadows to simulate grey corners.
+        customSquareStyles[move.to] = {
+          boxShadow:
+            "inset 4px 4px 0 rgba(128,128,128,0.8), inset -4px -4px 0 rgba(128,128,128,0.8), inset 4px -4px 0 rgba(128,128,128,0.8), inset -4px 4px 0 rgba(128,128,128,0.8)",
+        };
+      } else {
+        // Non-capture move: display a grey dot in the center.
+        customSquareStyles[move.to] = {
+          background:
+            "radial-gradient(circle, rgba(128,128,128,0.8) 10%, transparent 12%)",
+          backgroundPosition: "center",
+          backgroundSize: "100% 100%",
+        };
+      }
+    });
+    // Style the selected square.
+    customSquareStyles[selectedSquare] = { background: "rgba(255,0,0,0.2)" };
+  }
+
   return (
-    <div style={{ textAlign: "center", padding: "20px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        padding: window.innerWidth < 768 ? "10px" : "20px",
+      }}
+    >
       <Chessboard
         id="PlayVsRandom"
         boardWidth={boardWidth}
@@ -166,8 +200,9 @@ function ChessGame() {
         boardOrientation={boardOrientation}
         customBoardStyle={{
           borderRadius: "4px",
-          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.5)",
         }}
+        customSquareStyles={customSquareStyles}
       />
       <div style={{ marginTop: "20px" }}>
         <button
