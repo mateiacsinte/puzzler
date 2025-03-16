@@ -25,8 +25,8 @@ function ChessGame() {
     },
   ];
 
-  // Compute board size: on mobile, take the smaller of the viewport's width or height (minus a margin).
-  // On larger screens, we use 40% of the viewport's width.
+  // Compute board size: on mobile, use the smaller of the viewport's width or height (minus a small margin)
+  // On larger screens, use 40% of the viewport's width.
   const getBoardSize = () => {
     if (window.innerWidth < 768) {
       return Math.min(window.innerWidth, window.innerHeight) - 20;
@@ -34,7 +34,7 @@ function ChessGame() {
     return window.innerWidth * 0.4;
   };
 
-  // 'index' holds the index of the next expected move in the puzzle.solution array.
+  // State declarations.
   const [index, setSolutionIndex] = useState(0);
   const [puzzleIndex, setPuzzleIndex] = useState(0);
   const [currentTimeout, setCurrentTimeout] = useState(null);
@@ -42,6 +42,7 @@ function ChessGame() {
   const [game, setGame] = useState(new Chess(puzzle[puzzleIndex].fen));
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [selectedSquare, setSelectedSquare] = useState(null);
+  const [toast, setToast] = useState(null); // Toast message state
 
   // Update boardSize on window resize.
   useEffect(() => {
@@ -122,6 +123,7 @@ function ChessGame() {
 
   // onSquareClick: handles click-to-move.
   function onSquareClick(square) {
+    // If no square is selected, and the square contains a piece for the side to move, select it.
     if (!selectedSquare) {
       const piece = game.get(square);
       if (piece && piece.color === game.turn()) {
@@ -129,24 +131,33 @@ function ChessGame() {
       }
       return;
     }
+
+    // If a square is already selected, attempt a move from selectedSquare to the clicked square.
     const move = game.move({
       from: selectedSquare,
       to: square,
       promotion: "q", // default promotion to queen if applicable
     });
+    // Clear selection regardless.
     setSelectedSquare(null);
-    if (move === null) return;
+    if (move === null) return; // Illegal move.
+
+    // Construct UCI string for the move.
     let moveUci = move.from + move.to;
     if (move.promotion) moveUci += move.promotion;
     console.log("Player move UCI:", moveUci);
     console.log("Expected UCI:", puzzle[puzzleIndex].solution[index]);
 
     if (moveUci === puzzle[puzzleIndex].solution[index]) {
+      // Correct move: update the game state.
       setGame(new Chess(game.fen()));
+      // Schedule the opponent move after a short delay.
       const newTimeout = setTimeout(makeRandomMove, 500);
       setCurrentTimeout(newTimeout);
     } else {
       console.log("Incorrect move, reverting.");
+      setToast("Wrong");
+      setTimeout(() => setToast(null), 3000);
       game.undo();
       setGame(new Chess(game.fen()));
     }
@@ -158,11 +169,13 @@ function ChessGame() {
     const movesFromSelected = game.moves({ square: selectedSquare, verbose: true });
     movesFromSelected.forEach((move) => {
       if (move.flags.includes("c")) {
+        // Capture move: use inset shadows to simulate grey corners.
         customSquareStyles[move.to] = {
           boxShadow:
             "inset 4px 4px 0 rgba(128,128,128,0.8), inset -4px -4px 0 rgba(128,128,128,0.8), inset 4px -4px 0 rgba(128,128,128,0.8), inset -4px 4px 0 rgba(128,128,128,0.8)",
         };
       } else {
+        // Non-capture move: display a grey dot in the center.
         customSquareStyles[move.to] = {
           background:
             "radial-gradient(circle, rgba(128,128,128,0.8) 10%, transparent 12%)",
@@ -171,8 +184,25 @@ function ChessGame() {
         };
       }
     });
+    // Style the selected square.
     customSquareStyles[selectedSquare] = { background: "rgba(255,0,0,0.2)" };
   }
+
+  // Toast style for the animation.
+  const toastStyle = {
+    position: "fixed",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    padding: "10px 20px",
+    backgroundColor: "rgba(255, 0, 0, 0.7)",
+    color: "#fff",
+    borderRadius: "4px",
+    zIndex: 1000,
+    fontFamily: '"Playfair Display", serif',
+    fontWeight: 700,
+    animation: "toastFadeUp 3s forwards",
+  };
 
   return (
     <div
@@ -185,7 +215,28 @@ function ChessGame() {
         padding: "10px",
       }}
     >
-      {/* The Chessboard will always be square, with boardSize computed above */}
+      {/* Import Google Font and define keyframes for the toast animation */}
+      <style>
+        {`
+          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
+          
+          @keyframes toastFadeUp {
+            0% {
+              opacity: 1;
+              transform: translate(-50%, -50%);
+            }
+            100% {
+              opacity: 0;
+              transform: translate(-50%, -80%);
+            }
+          }
+        `}
+      </style>
+
+      {/* Toast element */}
+      {toast && <div style={toastStyle}>{toast}</div>}
+      <>{boardOrientation} to move</>
+
       <Chessboard
         id="PlayVsRandom"
         boardWidth={boardSize}
@@ -199,11 +250,11 @@ function ChessGame() {
         customSquareStyles={customSquareStyles}
       />
       <div style={{ marginTop: "20px" }}>
-        <button
+        {/* <button
           onClick={() => {
             safeGameMutate((g) => g.reset());
             clearTimeout(currentTimeout);
-            setSelectedSquare(null);
+            setSelectedSquare(null);          
           }}
         >
           Reset
@@ -216,7 +267,7 @@ function ChessGame() {
           }}
         >
           Undo
-        </button>
+        </button> */}
         <button onClick={onNextPuzzle}>Next Puzzle</button>
       </div>
     </div>
